@@ -90,14 +90,15 @@ $(document).ready(function() {
 									Janus.log("Plugin attached! (" + mixertest.getPlugin() + ", id=" + mixertest.getId() + ")");
 									// Prepare the username registration
 									$('#audiojoin').removeClass('hide').show();
-									$('#registernow').removeClass('hide').show();
-									$('#register').click(registerUsername);
 									$('#username').focus();
 									$('#start').removeAttr('disabled').html("Stop")
 										.click(function() {
 											$(this).attr('disabled', true);
 											janus.destroy();
 										});
+
+								        var register = { request: "join", room: myroom, display: "user" };
+								        mixertest.send({ message: register});
 								},
 								error: function(error) {
 									Janus.error("  -- Error attaching plugin...", error);
@@ -134,7 +135,8 @@ $(document).ready(function() {
 								onmessage: function(msg, jsep) {
 									Janus.debug(" ::: Got a message :::", msg);
 									var event = msg["audiobridge"];
-									Janus.debug("Event: " + event);
+								    Janus.debug("Event: " + event);
+								    console.log("Event: " + event);
 									if(event) {
 										if(event === "joined") {
 											// Successfully joined, negotiate WebRTC now
@@ -143,10 +145,18 @@ $(document).ready(function() {
 												Janus.log("Successfully joined room " + msg["room"] + " with ID " + myid);
 												if(!webrtcUp) {
 													webrtcUp = true;
-													// Publish our stream
+												    // Publish our stream
+												    console.log("Creating Offer");
 													mixertest.createOffer(
 														{
 															media: { video: false},	// This is an audio only room
+														        customizeSdp: function(jsep) {
+															    if(jsep.sdp.indexOf("stereo=1") == -1) {
+																// Make sure that our offer contains stereo too
+																jsep.sdp = jsep.sdp.replace("useinbandfec=1", "useinbandfec=1;stereo=1;sprop-stereo=1");
+															    }
+															    console.log("Customize SDP", jsep);
+															},
 															success: function(jsep) {
 																Janus.debug("Got SDP!", jsep);
 																var publish = { request: "configure", muted: false };
@@ -163,28 +173,6 @@ $(document).ready(function() {
 											if(msg["participants"]) {
 												var list = msg["participants"];
 												Janus.debug("Got a list of participants:", list);
-												for(var f in list) {
-													var id = list[f]["id"];
-													var display = list[f]["display"];
-													var setup = list[f]["setup"];
-													var muted = list[f]["muted"];
-													Janus.debug("  >> [" + id + "] " + display + " (setup=" + setup + ", muted=" + muted + ")");
-													if($('#rp'+id).length === 0) {
-														// Add to the participants list
-														$('#list').append('<li id="rp'+id+'" class="list-group-item">'+display+
-															' <i class="absetup fa fa-chain-broken"></i>' +
-															' <i class="abmuted fa fa-microphone-slash"></i></li>');
-														$('#rp'+id + ' > i').hide();
-													}
-													if(muted === true || muted === "true")
-														$('#rp'+id + ' > i.abmuted').removeClass('hide').show();
-													else
-														$('#rp'+id + ' > i.abmuted').hide();
-													if(setup === true || setup === "true")
-														$('#rp'+id + ' > i.absetup').hide();
-													else
-														$('#rp'+id + ' > i.absetup').removeClass('hide').show();
-												}
 											}
 										} else if(event === "roomchanged") {
 											// The user switched to a different room
@@ -195,28 +183,6 @@ $(document).ready(function() {
 											if(msg["participants"]) {
 												var list = msg["participants"];
 												Janus.debug("Got a list of participants:", list);
-												for(var f in list) {
-													var id = list[f]["id"];
-													var display = list[f]["display"];
-													var setup = list[f]["setup"];
-													var muted = list[f]["muted"];
-													Janus.debug("  >> [" + id + "] " + display + " (setup=" + setup + ", muted=" + muted + ")");
-													if($('#rp'+id).length === 0) {
-														// Add to the participants list
-														$('#list').append('<li id="rp'+id+'" class="list-group-item">'+display+
-															' <i class="absetup fa fa-chain-broken"></i>' +
-															' <i class="abmuted fa fa-microphone-slash"></i></li>');
-														$('#rp'+id + ' > i').hide();
-													}
-													if(muted === true || muted === "true")
-														$('#rp'+id + ' > i.abmuted').removeClass('hide').show();
-													else
-														$('#rp'+id + ' > i.abmuted').hide();
-													if(setup === true || setup === "true")
-														$('#rp'+id + ' > i.absetup').hide();
-													else
-														$('#rp'+id + ' > i.absetup').removeClass('hide').show();
-												}
 											}
 										} else if(event === "destroyed") {
 											// The room has been destroyed
@@ -225,32 +191,7 @@ $(document).ready(function() {
 												window.location.reload();
 											});
 										} else if(event === "event") {
-											if(msg["participants"]) {
-												var list = msg["participants"];
-												Janus.debug("Got a list of participants:", list);
-												for(var f in list) {
-													var id = list[f]["id"];
-													var display = list[f]["display"];
-													var setup = list[f]["setup"];
-													var muted = list[f]["muted"];
-													Janus.debug("  >> [" + id + "] " + display + " (setup=" + setup + ", muted=" + muted + ")");
-													if($('#rp'+id).length === 0) {
-														// Add to the participants list
-														$('#list').append('<li id="rp'+id+'" class="list-group-item">'+display+
-															' <i class="absetup fa fa-chain-broken"></i>' +
-															' <i class="abmuted fa fa-microphone-slash"></i></li>');
-														$('#rp'+id + ' > i').hide();
-													}
-													if(muted === true || muted === "true")
-														$('#rp'+id + ' > i.abmuted').removeClass('hide').show();
-													else
-														$('#rp'+id + ' > i.abmuted').hide();
-													if(setup === true || setup === "true")
-														$('#rp'+id + ' > i.absetup').hide();
-													else
-														$('#rp'+id + ' > i.absetup').removeClass('hide').show();
-												}
-											} else if(msg["error"]) {
+											if(msg["error"]) {
 												if(msg["error_code"] === 485) {
 													// This is a "no such room" error: give a more meaningful description
 													bootbox.alert(
@@ -275,6 +216,7 @@ $(document).ready(function() {
 									}
 									if(jsep) {
 										Janus.debug("Handling SDP as well...", jsep);
+										console.log("Handling SDP as well...", jsep);
 										mixertest.handleRemoteJsep({ jsep: jsep });
 									}
 								},
@@ -295,17 +237,6 @@ $(document).ready(function() {
 									Janus.attachMediaStream($('#roomaudio').get(0), stream);
 									if(!addButtons)
 										return;
-									// Mute button
-									audioenabled = true;
-									$('#toggleaudio').click(
-										function() {
-											audioenabled = !audioenabled;
-											if(audioenabled)
-												$('#toggleaudio').html("Mute").removeClass("btn-success").addClass("btn-danger");
-											else
-												$('#toggleaudio').html("Unmute").removeClass("btn-danger").addClass("btn-success");
-											mixertest.send({ message: { request: "configure", muted: !audioenabled }});
-										}).removeClass('hide').show();
 
 								},
 								oncleanup: function() {
@@ -335,44 +266,12 @@ $(document).ready(function() {
 function checkEnter(field, event) {
 	var theCode = event.keyCode ? event.keyCode : event.which ? event.which : event.charCode;
 	if(theCode == 13) {
-		registerUsername();
 		return false;
 	} else {
 		return true;
 	}
 }
 
-function registerUsername() {
-	if($('#username').length === 0) {
-		// Create fields to register
-		$('#register').click(registerUsername);
-		$('#username').focus();
-	} else {
-		// Try a registration
-		$('#username').attr('disabled', true);
-		$('#register').attr('disabled', true).unbind('click');
-		var username = $('#username').val();
-		if(username === "") {
-			$('#you')
-				.removeClass().addClass('label label-warning')
-				.html("Insert your display name (e.g., pippo)");
-			$('#username').removeAttr('disabled');
-			$('#register').removeAttr('disabled').click(registerUsername);
-			return;
-		}
-		if(/[^a-zA-Z0-9]/.test(username)) {
-			$('#you')
-				.removeClass().addClass('label label-warning')
-				.html('Input is not alphanumeric');
-			$('#username').removeAttr('disabled').val("");
-			$('#register').removeAttr('disabled').click(registerUsername);
-			return;
-		}
-		var register = { request: "join", room: myroom, display: username };
-		myusername = username;
-		mixertest.send({ message: register});
-	}
-}
 
 // Helper to parse query string
 function getQueryStringValue(name) {

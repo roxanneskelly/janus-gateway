@@ -2787,7 +2787,8 @@ function Janus(gatewayCallbacks) {
 				};
 				callbacks.customizeSdp(jsep);
 				offer.sdp = jsep.sdp;
-				Janus.log("Setting local description");
+			    Janus.log("Setting local description");
+			    Janus.log(jsep.sdp);
 				if(sendVideo && simulcast) {
 					// This SDP munging only works with Chrome (Safari STP may support it too)
 					if(Janus.webRTCAdapter.browserDetails.browser === "chrome" ||
@@ -3031,6 +3032,7 @@ function Janus(gatewayCallbacks) {
 				callbacks.customizeSdp(jsep);
 				answer.sdp = jsep.sdp;
 				Janus.log("Setting local description");
+			    Janus.log(jsep.sdp);
 				if(sendVideo && simulcast) {
 					// This SDP munging only works with Chrome
 					if(Janus.webRTCAdapter.browserDetails.browser === "chrome") {
